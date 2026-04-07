@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusFlow — AI-Powered Daily Planner</title>
+  <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-background-primary: #ffffff;
+      --color-background-secondary: #f5f4f0;
+      --color-background-tertiary: #eeede9;
+      --color-text-primary: #1a1a18;
+      --color-text-secondary: #6b6b67;
+      --color-text-tertiary: #a0a09c;
+      --color-border-tertiary: rgba(0,0,0,0.1);
+      --color-border-secondary: rgba(0,0,0,0.18);
+      --border-radius-md: 8px;
+      --border-radius-lg: 12px;
+      --border-radius-xl: 16px;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-background-primary: #1e1e1c;
+        --color-background-secondary: #2a2a28;
+        --color-background-tertiary: #111110;
+        --color-text-primary: #f0efeb;
+        --color-text-secondary: #9e9e9a;
+        --color-text-tertiary: #6a6a66;
+        --color-border-tertiary: rgba(255,255,255,0.1);
+        --color-border-secondary: rgba(255,255,255,0.18);
+      }
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-background-tertiary);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .app { max-width: 420px; width: 100%; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .btn-primary { width: 100%; padding: 12px; background: #534AB7; color: white; border: none; border-radius: var(--border-radius-md); font-size: 15px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); }
+    .btn-primary:hover { background: #3C3489; }
+    .btn-ghost { width: 100%; padding: 12px; background: transparent; color: var(--color-text-secondary); border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); font-size: 14px; cursor: pointer; font-family: var(--font-sans); }
+    .btn-ghost:hover { background: var(--color-background-secondary); }
+    .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+    .badge-free { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+    .badge-pro { background: #EEEDFE; color: #3C3489; }
+    .task-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); margin-bottom: 8px; cursor: pointer; }
+    .task-item.done .task-text { text-decoration: line-through; color: var(--color-text-tertiary); }
+    .check { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--color-border-secondary); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .check.checked { background: #534AB7; border-color: #534AB7; }
+    .check.checked::after { content: ''; width: 5px; height: 9px; border: 2px solid white; border-left: none; border-top: none; transform: rotate(45deg) translate(-1px, -1px); }
+    .priority-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .p-high { background: #E24B4A; }
+    .p-mid { background: #EF9F27; }
+    .p-low { background: #1D9E75; }
+    .ai-box { background: #EEEDFE; border: 0.5px solid #AFA9EC; border-radius: var(--border-radius-lg); padding: 14px; margin-bottom: 1rem; }
+    .ai-label { font-size: 11px; font-weight: 500; color: #534AB7; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .ai-text { font-size: 14px; color: #3C3489; line-height: 1.5; }
+    .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 1rem; }
+    .stat-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; text-align: center; }
+    .stat-val { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+    .stat-lbl { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+    .lock-overlay { position: relative; }
+    .lock-badge { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; background: #EEEDFE; color: #534AB7; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+    .plan-card { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 10px; cursor: pointer; background: var(--color-background-primary); }
+    .plan-card.selected { border: 2px solid #534AB7; }
+    .popular-badge { background: #534AB7; color: white; font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500; display: inline-block; margin-bottom: 8px; }
+    .feature-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px; }
+    .feature-row .tick { color: #1D9E75; font-size: 14px; font-weight: 500; }
+    .nav { display: flex; gap: 4px; margin-bottom: 1.25rem; background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 4px; }
+    .nav-btn { flex: 1; padding: 7px; font-size: 13px; border: none; background: transparent; cursor: pointer; border-radius: 6px; color: var(--color-text-secondary); font-family: var(--font-sans); }
+    .nav-btn.active { background: var(--color-background-primary); color: var(--color-text-primary); font-weight: 500; border: 0.5px solid var(--color-border-tertiary); }
+    .input-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+    .input-row input { flex: 1; padding: 9px 12px; font-size: 14px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); font-family: var(--font-sans); }
+    .input-row button { padding: 9px 14px; background: #534AB7; color: white; border: none; border-radius: var(--border-radius-md); font-size: 14px; cursor: pointer; font-family: var(--font-sans); }
+    .section-label { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+    .upgrade-strip { background: #EEEDFE; border: 0.5px solid #AFA9EC; border-radius: var(--border-radius-md); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; }
+    .upgrade-strip button { padding: 7px 14px; background: #534AB7; color: white; border: none; border-radius: var(--border-radius-md); font-size: 13px; cursor: pointer; white-space: nowrap; font-family: var(--font-sans); }
+    .back-btn { font-size: 13px; color: var(--color-text-secondary); cursor: pointer; margin-bottom: 1rem; display: inline-block; background: none; border: none; font-family: var(--font-sans); }
+    .back-btn:hover { color: var(--color-text-primary); }
+    .card-wrap { background: var(--color-background-primary); border-radius: var(--border-radius-xl); border: 0.5px solid var(--color-border-tertiary); padding: 1.25rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ONBOARDING -->
+  <div id="onboarding" class="screen active">
+    <div class="card-wrap" style="text-align:center; padding: 2rem 1.25rem 1.5rem;">
+      <div style="width:56px;height:56px;border-radius:16px;background:#534AB7;display:inline-flex;align-items:center;justify-content:center;margin-bottom:1rem;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1 style="font-size:26px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px;">FocusFlow</h1>
+      <p style="font-size:15px;color:var(--color-text-secondary);line-height:1.6;">Your AI-powered daily planner.<br>Stop feeling overwhelmed. Start finishing.</p>
+    </div>
+
+    <div class="card-wrap">
+      <div class="feature-row"><span class="tick">✓</span> AI prioritizes your tasks each morning</div>
+      <div class="feature-row"><span class="tick">✓</span> Focus mode blocks distractions</div>
+      <div class="feature-row"><span class="tick">✓</span> Weekly insights show your patterns</div>
+      <div class="feature-row"><span class="tick">✓</span> Smart reschedule when life happens</div>
+    </div>
+
+    <button class="btn-primary" onclick="show('dashboard')">Get started free</button>
+    <div style="margin-top:10px;">
+      <button class="btn-ghost" onclick="openCheckout()">See Pro plans</button>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--color-text-tertiary);margin-top:12px;">No credit card required · Free forever plan available</p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="screen">
+    <div class="card-wrap" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <p style="font-size:12px;color:var(--color-text-secondary);">Monday, April 6</p>
+        <h2 style="font-size:20px;font-weight:500;color:var(--color-text-primary);">Good morning 👋</h2>
+      </div>
+      <button onclick="openCheckout()" class="tag badge-pro" style="cursor:pointer;font-size:12px;padding:5px 12px;border:none;">Upgrade</button>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-val" id="done-count">0</div><div class="stat-lbl">Done today</div></div>
+      <div class="stat-card"><div class="stat-val" id="total-count">4</div><div class="stat-lbl">Total tasks</div></div>
+      <div class="stat-card"><div class="stat-val">72%</div><div class="stat-lbl">Focus score</div></div>
+    </div>
+
+    <div class="ai-box">
+      <div class="ai-label">AI insight</div>
+      <div class="ai-text" id="ai-tip">You finish most tasks before noon. Schedule your hardest task first today.</div>
+    </div>
+
+    <div class="nav">
+      <button class="nav-btn active" onclick="switchTab(this,'tasks-view')">Tasks</button>
+      <button class="nav-btn" onclick="switchTab(this,'focus-view')">Focus</button>
+      <button class="nav-btn" onclick="switchTab(this,'review-view')">Review</button>
+    </div>
+
+    <!-- TASKS VIEW -->
+    <div id="tasks-view">
+      <div class="input-row">
+        <input id="new-task" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addTask()" />
+        <button onclick="addTask()">+</button>
+      </div>
+      <div class="section-label">Today's priorities</div>
+      <div id="task-list">
+        <div class="task-item" onclick="toggleTask(this)">
+          <div class="check"></div>
+          <div class="priority-dot p-high"></div>
+          <span class="task-text" style="flex:1;font-size:14px;">Review project proposal</span>
+          <span class="tag badge-free" style="font-size:10px;">work</span>
+        </div>
+        <div class="task-item" onclick="toggleTask(this)">
+          <div class="check"></div>
+          <div class="priority-dot p-high"></div>
+          <span class="task-text" style="flex:1;font-size:14px;">Reply to client emails</span>
+          <span class="tag badge-free" style="font-size:10px;">work</span>
+        </div>
+        <div class="task-item" onclick="toggleTask(this)">
+          <div class="check"></div>
+          <div class="priority-dot p-mid"></div>
+          <span class="task-text" style="flex:1;font-size:14px;">30 min workout</span>
+          <span class="tag badge-free" style="font-size:10px;">health</span>
+        </div>
+        <div class="task-item lock-overlay" onclick="openCheckout()">
+          <div class="check" style="opacity:0.4;"></div>
+          <div class="priority-dot p-low"></div>
+          <span class="task-text" style="flex:1;font-size:14px;color:var(--color-text-tertiary);">AI-suggested task #4</span>
+          <span class="lock-badge">Pro</span>
+        </div>
+      </div>
+      <div class="upgrade-strip">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:#3C3489;">Unlock AI task suggestions</div>
+          <div style="font-size:12px;color:#534AB7;margin-top:2px;">Unlimited tasks + smart scheduling</div>
+        </div>
+        <button onclick="openCheckout()">Try Pro →</button>
+      </div>
+    </div>
+
+    <!-- FOCUS VIEW -->
+    <div id="focus-view" style="display:none;">
+      <div class="card-wrap" style="text-align:center;padding:1.5rem;">
+        <div id="timer-display" style="font-size:52px;font-weight:500;color:var(--color-text-primary);letter-spacing:2px;">25:00</div>
+        <div style="font-size:13px;color:var(--color-text-secondary);margin:8px 0 1.5rem;">Pomodoro focus session</div>
+        <button class="btn-primary" style="max-width:200px;margin:0 auto;display:block;" id="timer-btn" onclick="toggleTimer()">Start session</button>
+      </div>
+      <div class="ai-box">
+        <div class="ai-label">Focus tip</div>
+        <div class="ai-text">Put your phone face-down. You focus 23% better without visual notifications.</div>
+      </div>
+      <div class="task-item lock-overlay" style="opacity:0.7;" onclick="openCheckout()">
+        <span style="flex:1;font-size:14px;color:var(--color-text-secondary);">Deep work mode (90 min blocks)</span>
+        <span class="lock-badge">Pro</span>
+      </div>
+      <div class="task-item lock-overlay" style="opacity:0.7;margin-top:8px;" onclick="openCheckout()">
+        <span style="flex:1;font-size:14px;color:var(--color-text-secondary);">App & site blocker during focus</span>
+        <span class="lock-badge">Pro</span>
+      </div>
+    </div>
+
+    <!-- REVIEW VIEW -->
+    <div id="review-view" style="display:none;">
+      <div class="ai-box">
+        <div class="ai-label">Weekly pattern</div>
+        <div class="ai-text">You complete 40% more tasks on Tuesday and Wednesday. Try scheduling important work then.</div>
+      </div>
+      <div class="section-label">This week</div>
+      <div class="card-wrap" style="padding:1rem;">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
+          <div style="text-align:center;font-size:10px;color:var(--color-text-secondary);">Mon</div>
+          <div style="text-align:center;font-size:10px;color:var(--color-text-secondary);">Tue</div>
+          <div style="text-align:center;font-size:10px;color:var(--color-text-secondary);">Wed</div>
+          <div style="text-align:center;font-size:10px;color:var(--color-text-secondary);">Thu</div>
+          <div style="text-align:center;font-size:10px;color:var(--color-text-secondary);">Fri</div>
+          <div style="text-align:center;font-size:10px;color:var(--color-text-secondary);">Sat</div>
+          <div style="text-align:center;font-size:10px;color:var(--color-text-secondary);">Sun</div>
+          <div style="height:52px;background:#534AB7;border-radius:4px;"></div>
+          <div style="height:52px;background:#7F77DD;border-radius:4px;"></div>
+          <div style="height:52px;background:#7F77DD;border-radius:4px;"></div>
+          <div style="height:36px;background:#AFA9EC;border-radius:4px;align-self:end;"></div>
+          <div style="height:52px;background:#534AB7;border-radius:4px;"></div>
+          <div style="height:20px;background:#CECBF6;border-radius:4px;align-self:end;"></div>
+          <div style="height:10px;background:#EEEDFE;border-radius:4px;align-self:end;"></div>
+        </div>
+      </div>
+      <div class="task-item lock-overlay" onclick="openCheckout()">
+        <span style="flex:1;font-size:14px;color:var(--color-text-secondary);">Full productivity report (PDF export)</span>
+        <span class="lock-badge">Pro</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYWALL -->
+  <div id="paywall" class="screen">
+    <button class="back-btn" onclick="show('dashboard')">← Back</button>
+    <div class="card-wrap" style="text-align:center;padding:1.5rem;">
+      <h2 style="font-size:22px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px;">Unlock FocusFlow Pro</h2>
+      <p style="font-size:14px;color:var(--color-text-secondary);">Users complete 3× more tasks. Cancel any time.</p>
+    </div>
+
+    <div class="plan-card selected" id="plan-annual" onclick="selectPlan('annual')">
+      <div class="popular-badge">Most popular · Best value</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;">
+        <div>
+          <div style="font-size:16px;font-weight:500;color:var(--color-text-primary);">Annual</div>
+          <div style="font-size:13px;color:var(--color-text-secondary);">Billed once per year</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px;font-weight:500;color:var(--color-text-primary);">$4.99<span style="font-size:13px;font-weight:400;">/mo</span></div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);">$59.99/year · Save 50%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="plan-card" id="plan-monthly" onclick="selectPlan('monthly')">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;">
+        <div>
+          <div style="font-size:16px;font-weight:500;color:var(--color-text-primary);">Monthly</div>
+          <div style="font-size:13px;color:var(--color-text-secondary);">Pay month to month</div>
+        </div>
+        <div style="font-size:22px;font-weight:500;color:var(--color-text-primary);">$9.99<span style="font-size:13px;font-weight:400;">/mo</span></div>
+      </div>
+    </div>
+
+    <div class="card-wrap" style="margin-bottom:1rem;">
+      <div class="feature-row"><span class="tick">✓</span> Unlimited tasks & projects</div>
+      <div class="feature-row"><span class="tick">✓</span> AI daily prioritization</div>
+      <div class="feature-row"><span class="tick">✓</span> Deep work mode (90-min sessions)</div>
+      <div class="feature-row"><span class="tick">✓</span> App & site blocker during focus</div>
+      <div class="feature-row"><span class="tick">✓</span> Weekly productivity reports</div>
+      <div class="feature-row"><span class="tick">✓</span> Smart reschedule when overloaded</div>
+    </div>
+
+    <button class="btn-primary" id="cta-btn" onclick="openCheckout()">Start 7-day free trial</button>
+    <p style="text-align:center;font-size:12px;color:var(--color-text-tertiary);margin-top:10px;">No charge today · Cancel any time</p>
+  </div>
+
+  <!-- SUCCESS -->
+  <div id="success" class="screen">
+    <div class="card-wrap" style="text-align:center;padding:3rem 1.25rem;">
+      <div style="width:64px;height:64px;border-radius:50%;background:#EAF3DE;display:inline-flex;align-items:center;justify-content:center;margin-bottom:1rem;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#639922" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="10" stroke="#639922" stroke-width="2"/></svg>
+      </div>
+      <h2 style="font-size:22px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px;">You're in!</h2>
+      <p style="font-size:15px;color:var(--color-text-secondary);line-height:1.6;">Your 7-day Pro trial is active.<br>No charge until April 13.</p>
+      <div class="ai-box" style="margin-top:1.5rem;text-align:left;">
+        <div class="ai-label">First step</div>
+        <div class="ai-text">Add your top 3 tasks for today and let AI sort them by priority for you.</div>
+      </div>
+      <button class="btn-primary" style="margin-top:1.5rem;" onclick="show('dashboard')">Go to my dashboard</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let timerRunning = false;
+  let timerSecs = 25 * 60;
+  let timerInterval = null;
+
+  function openCheckout() {
+    window.LemonSqueezy.Url.Open('https://flowfocus.lemonsqueezy.com/checkout/buy/96608ca1-5a38-42a9-80ec-1619f14e22e2');
+  }
+
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function switchTab(btn, viewId) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#tasks-view,#focus-view,#review-view').forEach(v => v.style.display = 'none');
+    document.getElementById(viewId).style.display = 'block';
+  }
+
+  function toggleTask(el) {
+    const check = el.querySelector('.check');
+    check.classList.toggle('checked');
+    el.classList.toggle('done');
+    const done = document.querySelectorAll('.check.checked').length;
+    document.getElementById('done-count').textContent = done;
+    const tips = [
+      'You finish most tasks before noon. Schedule your hardest task first today.',
+      'Great momentum! Keep going — you are in a flow state.',
+      'Almost there! One task left. You got this.',
+      'Perfect day! All tasks complete. Log off and rest.'
+    ];
+    document.getElementById('ai-tip').textContent = tips[Math.min(done, tips.length - 1)];
+  }
+
+  function addTask() {
+    const input = document.getElementById('new-task');
+    const val = input.value.trim();
+    if (!val) return;
+    const list = document.getElementById('task-list');
+    const item = document.createElement('div');
+    item.className = 'task-item';
+    item.onclick = function() { toggleTask(this); };
+    item.innerHTML = '<div class="check"></div><div class="priority-dot p-mid"></div><span class="task-text" style="flex:1;font-size:14px;">' + val + '</span>';
+    const total = parseInt(document.getElementById('total-count').textContent) + 1;
+    document.getElementById('total-count').textContent = total;
+    list.insertBefore(item, list.lastElementChild);
+    input.value = '';
+  }
+
+  function toggleTimer() {
+    const btn = document.getElementById('timer-btn');
+    const display = document.getElementById('timer-display');
+    if (!timerRunning) {
+      timerRunning = true;
+      btn.textContent = 'Pause';
+      timerInterval = setInterval(() => {
+        if (timerSecs <= 0) { clearInterval(timerInterval); timerRunning = false; btn.textContent = 'Session complete!'; return; }
+        timerSecs--;
+        const m = Math.floor(timerSecs / 60).toString().padStart(2, '0');
+        const s = (timerSecs % 60).toString().padStart(2, '0');
+        display.textContent = m + ':' + s;
+      }, 1000);
+    } else {
+      timerRunning = false;
+      clearInterval(timerInterval);
+      btn.textContent = 'Resume';
+    }
+  }
+
+  function selectPlan(plan) {
+    document.getElementById('plan-annual').classList.remove('selected');
+    document.getElementById('plan-monthly').classList.remove('selected');
+    document.getElementById('plan-' + plan).classList.add('selected');
+  }
+
+  function showSuccess() {
+    show('success');
+  }
+</script>
+</body>
+</html>
